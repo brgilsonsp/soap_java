@@ -1,0 +1,89 @@
+= Projeto
+
+Esse projeto contém os exercícios praticados durante o curso JAX-WS: Domine a criação de webservices SOAP, no Alura.
+
+O repositório irá conter uma branch para cada aula, sendo a branch aula_X, onde X é o número da aula. O curso contém 7 aulas, sendo assim teremos 7 branch mais a branch master. Todas as aulas serão mergeadas na branch master.
+
+===== Infra estrutura
+Para esse curso iremos utilizar os seguintes pacotes:
+
+ - https://www.oracle.com/java/technologies/javase-jdk8-downloads.html[Java 8], porém o Java 7 funciona perfeitamente
+ - https://wildfly.org/downloads/[JBoss Wildfly 8.x]
+ - https://www.soapui.org/[SOAPUI] para testes
+
+
+===== Introdução
+Assim como as pessoas não conseguem viverem isoladas, os sistemas também não conseguem. Constantemente precisamos trocar informações, ou até mesmo solicitar processamento de um determinado dado a um sistema mais "especializado". Por exemplo, quando você cria um site e deseja que seus usuários conheçam a sua localização física, uma das formas mais simples é compartilhar a sua localização no Google Maps, com iso você irá consumir um serviço do Google aonde você informa a sua localização e o Maps lhe fornece um mapa de como chegar até você. Isso é um exemplo de uma aplicação consumindo um serviço. Um outro exemplo classico é obter o endereço completo através do CEP, para isso você consome um dos serviço dos Correios aonde você informa o CEP e recebe o endereço completo, como logradouro, cidade, estado etc. Esses são serviços web, mais conhecido como webservice.
+
+Nesse curso iremos desenvolver um webservice SOAP, que já foi hipster um dia....hehehe
+
+===== SOAP
+O https://pt.wikipedia.org/wiki/SOAP[SOAP] é um protocolo para troca de dados em formato XML de forma distribuída e descentralizada. O SOAP adere a espeficiação do https://www.w3.org/TR/soap/[W3C] e que possui um consórcio de grandes empresas que contribuem com essa especificação. Você também pode utilizar o protocolo HTTP para trafegar o webservice SOAP, inclusive é o que faremos nesse projeto.
+
+Uma mensagem SOAP possui um envelope e dentro dele podemos inserir, opcionalmente, um cabeçalho e obrigatóriamente um corpo.
+
+Seguindo essa especificação os sistemas podem trocar informações entre si.
+
+
+=== Aula 01
+
+===== SOAP na JRE
+A partir da versão 1.6 do Java, foi implementado as APIs necessárias para expor uma aplicação webservice sem a necessidade de servidor de aplicação, utilizando apenas a JRE.
+
+A especificação Java que trata de webservice SOAP é a https://docs.oracle.com/javase/8/docs/api/index.html?javax/xml/ws/package-summary.html[JAX-WS] (Java API for XML - Web Service) e o https://github.com/javaee/metro-jax-ws[Metro] é a sua implementação referencial.
+
+Um webservice no Java é uma classe com métodos como outra qualquer, porém ela receberá anotações específicas da API JAX-WS, aonde o nosso servidor de aplicaçao e/ou a JRE irão expor seus métodos como recursos para serem consumidos através do protocolo SOAP.
+
+===== Criando a aplicação
+A nossa aplicação será um controle de estoque que iremos disponibilizar, via webservice SOAP, para que qualquer outra aplicação possa integrar-se com o nosso estoque, fornecendo, consultando, e até manipulando, dados.
+Para facilitar o desenvolvimento, no curso do Alura foi disponibilizado os Modelos, DAOs, Exceptions e Builders que estão nos pacotes `br.com.caelum.estoque.modelo.item` e `br.com.caelum.estoque.modelo.usuario`.
+
+Nesse primeiro momento iremos criar um webservice que fornecerá apenas uma lista de itens do nosso estoque e no momento que esse serviço for consumido, será impresso um log no nosso console.
+
+Vamos criar a classe `EstoqueWS` no pacote `br.com.caelum.estoque` e vamos anotá-la com https://docs.oracle.com/javase/8/docs/api/index.html?javax/jws/WebService.html[@WebService] que indica para o nosso JRE e/ou servidor de aplicação, que essa classe é um recurso SOAP. O nosso serviço irá devolver uma lista de itens, para isso iremos implementar um método que irá devolver um List<Item>. Quando algum consumidor requisitar uma lista de itens ao nosso webservice, será impressa no console da nossa IDE `Chamando getItens()`
+
+----
+import java.util.List;
+import javax.jws.WebService;
+import br.com.caelum.estoque.modelo.item.Item;
+import br.com.caelum.estoque.modelo.item.ItemDao;
+
+@WebService
+public class EstoqueWS {
+	
+	private ItemDao dao = new ItemDao();
+
+	public List<Item> getItens() {
+		System.out.println("Chamando getItens()");
+		return dao.todosItens();
+	}
+}
+----
+
+Essa implementação é suficiente para criar um webservice SOAP. Agora precisamos disponibilizar esse recurso para os nossos consumidores. Nesse momento não iremos utilizar um servidor de aplicação, como JBoss Wildfly, por exemplo, iremos nos benificar da API do JAX-WS para disponibilizar um endereço completo para o nosso recurso, mais conhecido como endpoint, um ponto de saída do nosso recurso para o "mundo externo". 
+
+A API JAX-WS disponibiliza a classa estática `javax.xml.ws.Endpoint.Endpoint` que fornece o método `publish()`. Iremos utilizar a sobrecarga que solicita um endereço e o objeto que será exposto, o nosso serviço propriamente dito. Iremos utilizar o protoloco HTTP e consequentemente, iremos fornecer um endereço http, nesse momento será o endereço na nossa máquina de trabalho, localhost, a porta você pode definir a qual preferir (desde que esteja livre, óbvio....rs) e iremos informar um recurso, no nosso exemplo *estoque_ws*, porém você pode configurar qualquer coisa aqui, esse endereço completo você deverá disponibilizar para o consumir, pois será através dele que as aplicações externas terão acesso a sua aplicação. Já o serviço que iremos disponibilizar será um objeto do tipo `EstoqueWS`, que criamos logo acima e que está com a anotação `@WebService`. Essa classe é o ponto de entrada da nossa aplicação, ou seja, contém o método `main`:
+----
+import javax.xml.ws.Endpoint;
+
+public class PublicaEstoqueWS {
+
+	public static void main(String[] args) {
+
+		final EstoqueWS service = new EstoqueWS();
+		final String address = "http://localhost:9999/estoque_ws";
+		
+		Endpoint.publish(address, service);
+	}
+}
+----
+
+Agora é só executar a nossa aplicação que o nosso serviço estará disponível no endereço *http://localhost:9999/estoque_ws*. Porém o SOAP aguarda uma requisição com o verbo POST, com o `Content-Type: text/xml`. Nesse momento o webservice `estoque_ws` já está disponível.
+
+==== WSDL
+Toda aplicação SOAP possui um `WSDL`, que nada mais é do que um contrato do nosso webservice. Esse recurso disponibiliza todos os recursos que a nossa aplicação disponibiliza, qual é entrada que a aplicação aguarda, como formato, campos e seus respectivos tipos e a aplicação ira disponibilizar. o WSDL é suma importância para que os consumidores saibam corretamente o que precisa enviar, como devem enviar e o que receberão como resposta. Porém quem constrói o WSDL? É a própria API JAX-WS, no momento que a JRE executa a aplicação ele lê os recursos disponíveis, os métodos públicos das classes que estão com a anotação `@WebService`, e analisa as assinaturas desses métodos, para conhecer os parâmetros e seus respectivos tipos que o recurso necessita e qual o tipo do retorno. Com toda essa análise, a API disponibiliza o recurso wsdl para disponibilizar para o consumidor. Para acessar o wsdl, você deve fazer uma requisição do tipo GET para o endpoint do seu webservice passando o parâmetro wsdl *http://localhost:9999/estoque_ws?wsdl*, ao acessar esse endereço no seu navegador, você terá acesso a todo o contrado do seu webservice que o consumidor deverá seguir.
+
+==== Teste com SOAPUI
+Existem outras aplicações que você pode utilizar para testar o seu webservice, inclusive pode criar a sua própria. Porém o SOAPUI é uma ferramenta robusta que na sua versão gratuíta fornece as ferramentas necessárias para executar esse teste.
+Para efetuar o teste, acesse o SOAPUI, clique `File / New SOAP Project` ou clique no ícone SOAP, em `Initial WSDL`, informe o endereço completo da sua aplicação com o parâmetro wsdl, em `Project Name` informe o nome que desejar, clique em ok. Em `Navigator` será exibido um diretório com o nome que você configurou no passo anterior, agora é só navegar nesse diretório que você localizará o *Request 1*, dê um duplo clique que será exibido no lado direito o envelope da sua requisição. O SOAPUI construiu esse envelope com base no contrato que você forneceu no wsdl. Note que temos o `soapenv:Envelop`, aonde toda requisição e resposta de uma aplicação SOAP será envolvida nesse envelope; a tag `soapenv:Header` é opcional, nesse exemplo não foi configurado nenhum header na nossa aplicação; e temos atag `soapenv:Body`, que será enviado o corpo da nossa requisição, nesse caso iremos informar qual recurso do nosso endpoint queremos consumir, o getItens, note que ele possui o mesmo nome do método. Para executar o teste clique no botão verde de play e mais a direita será exibido a resposta, que é a lista de itens.
+

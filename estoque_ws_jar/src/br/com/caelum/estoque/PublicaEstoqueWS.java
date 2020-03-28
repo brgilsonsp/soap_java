@@ -7,8 +7,7 @@ public class PublicaEstoqueWS {
 	public static void main(String[] args) {
 
 		final EstoqueWS service = new EstoqueWS();
-		final String address = "http://localhost/estoque_ws";
+		final String address = "http://localhost:9999/estoque_ws";
 		Endpoint.publish(address, service);
 	}
-
 }
